@@ -93,6 +93,11 @@ class Scanner:
         self.current += 1
         return self.source[self.current - 1]
 
+    def _peek(self) -> str:
+        if self._is_at_end():
+            return "\0"
+        return self.source[self.current]
+
     def _match(self, expected: str) -> bool:
         if self._is_at_end():
             return False
@@ -149,6 +154,16 @@ class Scanner:
                     self._add_token(TokenType.LESS_EQUAL)
                 else:
                     self._add_token(TokenType.LESS)
+            case "/":
+                if self._match("/"):
+                    while self._peek() != "\n" and not self._is_at_end():
+                        self._advance()
+                else:
+                    self._add_token(TokenType.SLASH)
+            case " " | "\r" | "\t":
+                pass
+            case "\n":
+                self.line += 1
             case _:
                 error(self.line, f"Unexpected character '{c}'")
 

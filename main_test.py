@@ -16,7 +16,7 @@ class TestScanner(unittest.TestCase):
 
     def test_single_character_tokens(self):
         """Test scanning of single character tokens"""
-        source = "(){},.-+;*=!><"
+        source = "(){},.-+;*=!></"
         scanner = Scanner(source)
         tokens = scanner.scan_tokens()
 
@@ -35,6 +35,7 @@ class TestScanner(unittest.TestCase):
             (TokenType.BANG, "!"),
             (TokenType.GREATER, ">"),
             (TokenType.LESS, "<"),
+            (TokenType.SLASH, "/"),
             (TokenType.EOF, ""),
         ]
 
@@ -61,6 +62,40 @@ class TestScanner(unittest.TestCase):
         for token, expected in zip(tokens, expected_list):
             self.assertEqual(token.token_type, expected[0])
             self.assertEqual(token.lexeme, expected[1])
+
+    def test_comment_newlines_single_and_double_tokens(self):
+        source = """\
+// Single-line comment
+(( )){} // grouping stuff
+!*+-/=<> <= == // operators\
+"""
+        scanner = Scanner(source)
+        tokens = scanner.scan_tokens()
+
+        expected_tokens = [
+            (TokenType.LEFT_PAREN, 2),
+            (TokenType.LEFT_PAREN, 2),
+            (TokenType.RIGHT_PAREN, 2),
+            (TokenType.RIGHT_PAREN, 2),
+            (TokenType.LEFT_BRACE, 2),
+            (TokenType.RIGHT_BRACE, 2),
+            (TokenType.BANG, 3),
+            (TokenType.STAR, 3),
+            (TokenType.PLUS, 3),
+            (TokenType.MINUS, 3),
+            (TokenType.SLASH, 3),
+            (TokenType.EQUAL, 3),
+            (TokenType.LESS, 3),
+            (TokenType.GREATER, 3),
+            (TokenType.LESS_EQUAL, 3),
+            (TokenType.EQUAL_EQUAL, 3),
+            (TokenType.EOF, 3),
+        ]
+
+        self.assertEqual(len(tokens), len(expected_tokens))
+        for token, expected in zip(tokens, expected_tokens):
+            self.assertEqual(token.token_type, expected[0])
+            self.assertEqual(token.line, expected[1])
 
     def test_string_literal(self):
         """Test scanning of string literals"""
