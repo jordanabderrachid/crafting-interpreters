@@ -145,9 +145,12 @@ class TestScanner(unittest.TestCase):
         scanner = Scanner(source)
         tokens = scanner.scan_tokens()
 
+        expected = ["variable", "foo", "bar123"]
+
         self.assertEqual(len(tokens), 4)  # Three identifiers + EOF
         for i in range(3):
             self.assertEqual(tokens[i].token_type, TokenType.IDENTIFIER)
+            self.assertEqual(tokens[i].lexeme, expected[i])
 
 
 if __name__ == "__main__":

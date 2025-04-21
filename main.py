@@ -140,6 +140,12 @@ class Scanner:
     def _is_digit(self, c: str) -> bool:
         return c >= "0" and c <= "9"
 
+    def _is_alpha(self, c: str) -> bool:
+        return (c >= "a" and c <= "z") or (c >= "A" and c <= "Z") or c == "_"
+
+    def _is_alphanumeric(self, c: str) -> bool:
+        return self._is_alpha(c) or self._is_digit(c)
+
     def _number(self):
         is_float = False
         while self._is_digit(self._peek()):
@@ -157,6 +163,12 @@ class Scanner:
             if is_float
             else int(self.source[self.start : self.current]),
         )
+
+    def _identifier(self):
+        while self._is_alphanumeric(self._peek()):
+            self._advance()
+
+        self._add_token(TokenType.IDENTIFIER)
 
     def _scan_token(self):
         c = self._advance()
@@ -216,6 +228,8 @@ class Scanner:
             case _:
                 if self._is_digit(c):
                     self._number()
+                elif self._is_alpha(c):
+                    self._identifier()
                 else:
                     error(self.line, f"Unexpected character '{c}'")
 
