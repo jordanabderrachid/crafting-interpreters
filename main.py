@@ -65,6 +65,26 @@ class TokenType(Enum):
     EOF = "EOF"
 
 
+KEYWORDS = {
+    "and": TokenType.AND,
+    "class": TokenType.CLASS,
+    "else": TokenType.ELSE,
+    "false": TokenType.FALSE,
+    "for": TokenType.FOR,
+    "fun": TokenType.FUN,
+    "if": TokenType.IF,
+    "nil": TokenType.NIL,
+    "or": TokenType.OR,
+    "print": TokenType.PRINT,
+    "return": TokenType.RETURN,
+    "super": TokenType.SUPER,
+    "this": TokenType.THIS,
+    "true": TokenType.TRUE,
+    "var": TokenType.VAR,
+    "while": TokenType.WHILE,
+}
+
+
 class Token:
     def __init__(
         self,
@@ -168,7 +188,11 @@ class Scanner:
         while self._is_alphanumeric(self._peek()):
             self._advance()
 
-        self._add_token(TokenType.IDENTIFIER)
+        type = KEYWORDS.get(
+            self.source[self.start : self.current], TokenType.IDENTIFIER
+        )
+
+        self._add_token(type)
 
     def _scan_token(self):
         c = self._advance()
