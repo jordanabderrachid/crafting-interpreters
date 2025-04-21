@@ -67,7 +67,11 @@ class TokenType(Enum):
 
 class Token:
     def __init__(
-        self, token_type: TokenType, lexeme: str, literal: int | float | str, line: int
+        self,
+        token_type: TokenType,
+        lexeme: str,
+        literal: int | float | str | None,
+        line: int,
     ):
         self.token_type = token_type
         self.lexeme = lexeme
@@ -106,9 +110,26 @@ class Scanner:
         self.current += 1
         return True
 
-    def _add_token(self, type: TokenType):
+    def _add_token(self, type: TokenType, litteral: int | float | str | None = None):
         self.tokens.append(
-            Token(type, self.source[self.start : self.current], None, self.line)
+            Token(type, self.source[self.start : self.current], litteral, self.line)
+        )
+
+    def _string(self):
+        while self._peek() != '"' and not self._is_at_end():
+            if self._peek() == "\n":
+                self.line += 1
+            self._advance()
+
+        if self._is_at_end():
+            error(self.line, "Unterminated string.")
+            return
+
+        # the final '"'
+        self._advance()
+
+        self._add_token(
+            TokenType.STRING, self.source[self.start + 1 : self.current - 1]
         )
 
     def _scan_token(self):
@@ -164,6 +185,8 @@ class Scanner:
                 pass
             case "\n":
                 self.line += 1
+            case '"':
+                self._string()
             case _:
                 error(self.line, f"Unexpected character '{c}'")
 
