@@ -1,5 +1,11 @@
 from enum import Enum
 import sys
+from abc import ABC
+
+
+class Expr(ABC):
+    pass
+
 
 had_error = False
 

@@ -1,0 +1,68 @@
+import os
+
+
+def _import_code(names: set[str]) -> str:
+    KNOWN = {"Any": "from typing import Any"}
+    imports = []
+    for name in names:
+        if name in KNOWN:
+            imports.append(KNOWN[name])
+        else:
+            imports.append(f"from . import {name}")
+    return "\n".join(imports)
+
+
+def generate_init(outdir: str, class_names: list[str]):
+    filename = f"{outdir}/__init__.py"
+
+    imports = "\n".join(
+        [
+            f"from .{class_name.lower()} import {class_name}"
+            for class_name in class_names
+        ]
+    )
+
+    all = ", ".join([f"'{class_name}'" for class_name in class_names])
+
+    with open(filename, "w") as file:
+        file.write(f"{imports}\n\n")
+        file.write(f"__all__ = [{all}]\n")
+
+
+def generate_ast(outdir: str, parent: str, defs: list[str]):
+    class_names = []
+    for definition in defs:
+        class_name, rest = definition.split(":")
+        class_name, rest = class_name.strip(), rest.strip()
+
+        class_names.append(class_name)
+        attrs = []  # type, name
+        for type_str in rest.split(","):
+            attr_type, attr_name = type_str.strip().split(" ")
+            attr_type, attr_name = attr_type.strip(), attr_name.strip()
+            attrs.append((attr_type, attr_name))
+
+        to_import = {parent} | set(attr[0] for attr in attrs)
+        filename = f"{outdir}/{class_name.lower()}.py"
+
+        with open(filename, "w") as file:
+            file.write(f"{_import_code(to_import)}\n\n")
+            file.write(f"class {class_name}({parent}):\n")
+            for attr_type, attr_name in attrs:
+                file.write(f"    {attr_name}: {attr_type}\n")
+
+    generate_init(outdir, class_names)
+
+
+if __name__ == "__main__":
+    curr_dir = os.path.dirname(os.path.abspath(__file__))
+    generate_ast(
+        curr_dir,
+        "Expr",
+        [
+            "Binary   : Expr left, Token operator, Expr right",
+            "Grouping : Expr expression",
+            "Literal  : Any value",
+            "Unary    : Token operator, Expr right",
+        ],
+    )
