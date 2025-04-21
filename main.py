@@ -102,6 +102,11 @@ class Scanner:
             return "\0"
         return self.source[self.current]
 
+    def _peek_next(self) -> str:
+        if self.current + 1 >= len(self.source):
+            return "\0"
+        return self.source[self.current + 1]
+
     def _match(self, expected: str) -> bool:
         if self._is_at_end():
             return False
@@ -130,6 +135,27 @@ class Scanner:
 
         self._add_token(
             TokenType.STRING, self.source[self.start + 1 : self.current - 1]
+        )
+
+    def _is_digit(self, c: str) -> bool:
+        return c >= "0" and c <= "9"
+
+    def _number(self):
+        is_float = False
+        while self._is_digit(self._peek()):
+            self._advance()
+
+        if self._peek() == "." and self._is_digit(self._peek_next()):
+            is_float = True
+            self._advance()  # consume the "."
+            while self._peek().isdigit():
+                self._advance()
+
+        self._add_token(
+            TokenType.NUMBER,
+            float(self.source[self.start : self.current])
+            if is_float
+            else int(self.source[self.start : self.current]),
         )
 
     def _scan_token(self):
@@ -188,7 +214,10 @@ class Scanner:
             case '"':
                 self._string()
             case _:
-                error(self.line, f"Unexpected character '{c}'")
+                if self._is_digit(c):
+                    self._number()
+                else:
+                    error(self.line, f"Unexpected character '{c}'")
 
     def scan_tokens(self) -> list[Token]:
         while not self._is_at_end():
