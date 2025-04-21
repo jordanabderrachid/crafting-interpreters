@@ -81,19 +81,85 @@ class Token:
 class Scanner:
     def __init__(self, source):
         self.source = source
+        self.start = 0
+        self.current = 0
+        self.line = 1
         self.tokens = []
 
     def _is_at_end(self) -> bool:
+        return self.current >= len(self.source)
+
+    def _advance(self) -> str:
+        self.current += 1
+        return self.source[self.current - 1]
+
+    def _match(self, expected: str) -> bool:
+        if self._is_at_end():
+            return False
+        if self.source[self.current] != expected:
+            return False
+        self.current += 1
         return True
 
+    def _add_token(self, type: TokenType):
+        self.tokens.append(
+            Token(type, self.source[self.start : self.current], None, self.line)
+        )
+
     def _scan_token(self):
-        pass
+        c = self._advance()
+        match c:
+            case "(":
+                self._add_token(TokenType.LEFT_PAREN)
+            case ")":
+                self._add_token(TokenType.RIGHT_PAREN)
+            case "{":
+                self._add_token(TokenType.LEFT_BRACE)
+            case "}":
+                self._add_token(TokenType.RIGHT_BRACE)
+            case ",":
+                self._add_token(TokenType.COMMA)
+            case ".":
+                self._add_token(TokenType.DOT)
+            case "-":
+                self._add_token(TokenType.MINUS)
+            case "+":
+                self._add_token(TokenType.PLUS)
+            case ";":
+                self._add_token(TokenType.SEMICOLON)
+            case "*":
+                self._add_token(TokenType.STAR)
+            case "!":
+                if self._match("="):
+                    self._add_token(TokenType.BANG_EQUAL)
+                else:
+                    self._add_token(TokenType.BANG)
+            case "=":
+                if self._match("="):
+                    self._add_token(TokenType.EQUAL_EQUAL)
+                else:
+                    self._add_token(TokenType.EQUAL)
+            case ">":
+                if self._match("="):
+                    self._add_token(TokenType.GREATER_EQUAL)
+                else:
+                    self._add_token(TokenType.GREATER)
+            case "<":
+                if self._match("="):
+                    self._add_token(TokenType.LESS_EQUAL)
+                else:
+                    self._add_token(TokenType.LESS)
+            case _:
+                error(self.line, f"Unexpected character '{c}'")
 
     def scan_tokens(self) -> list[Token]:
         while not self._is_at_end():
+            self.start = self.current
             self._scan_token()
 
-        self.tokens.append(Token(TokenType.EOF, "", None, 0))
+        self.start = self.current
+        self._add_token(TokenType.EOF)
+
         return self.tokens
 
 

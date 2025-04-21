@@ -12,49 +12,55 @@ class TestScanner(unittest.TestCase):
         self.assertEqual(tokens[0].token_type, TokenType.EOF)
         self.assertEqual(tokens[0].lexeme, "")
         self.assertIsNone(tokens[0].literal)
-        self.assertEqual(tokens[0].line, 0)
+        self.assertEqual(tokens[0].line, 1)
 
     def test_single_character_tokens(self):
         """Test scanning of single character tokens"""
-        source = "(){},.-+;*"
+        source = "(){},.-+;*=!><"
         scanner = Scanner(source)
         tokens = scanner.scan_tokens()
 
-        expected_types = [
-            TokenType.LEFT_PAREN,
-            TokenType.RIGHT_PAREN,
-            TokenType.LEFT_BRACE,
-            TokenType.RIGHT_BRACE,
-            TokenType.COMMA,
-            TokenType.DOT,
-            TokenType.MINUS,
-            TokenType.PLUS,
-            TokenType.SEMICOLON,
-            TokenType.STAR,
-            TokenType.EOF,
+        expected_list = [
+            (TokenType.LEFT_PAREN, "("),
+            (TokenType.RIGHT_PAREN, ")"),
+            (TokenType.LEFT_BRACE, "{"),
+            (TokenType.RIGHT_BRACE, "}"),
+            (TokenType.COMMA, ","),
+            (TokenType.DOT, "."),
+            (TokenType.MINUS, "-"),
+            (TokenType.PLUS, "+"),
+            (TokenType.SEMICOLON, ";"),
+            (TokenType.STAR, "*"),
+            (TokenType.EQUAL, "="),
+            (TokenType.BANG, "!"),
+            (TokenType.GREATER, ">"),
+            (TokenType.LESS, "<"),
+            (TokenType.EOF, ""),
         ]
 
-        self.assertEqual(len(tokens), len(expected_types))
-        for token, expected_type in zip(tokens, expected_types):
-            self.assertEqual(token.token_type, expected_type)
+        self.assertEqual(len(tokens), len(expected_list))
+        for token, expected in zip(tokens, expected_list):
+            self.assertEqual(token.token_type, expected[0])
+            self.assertEqual(token.lexeme, expected[1])
 
     def test_two_character_tokens(self):
         """Test scanning of two character tokens"""
-        source = "!= == <= >="
+        source = "".join(["!=", "==", "<=", ">="])
         scanner = Scanner(source)
         tokens = scanner.scan_tokens()
 
-        expected_types = [
-            TokenType.BANG_EQUAL,
-            TokenType.EQUAL_EQUAL,
-            TokenType.LESS_EQUAL,
-            TokenType.GREATER_EQUAL,
-            TokenType.EOF,
+        expected_list = [
+            (TokenType.BANG_EQUAL, "!="),
+            (TokenType.EQUAL_EQUAL, "=="),
+            (TokenType.LESS_EQUAL, "<="),
+            (TokenType.GREATER_EQUAL, ">="),
+            (TokenType.EOF, ""),
         ]
 
-        self.assertEqual(len(tokens), len(expected_types))
-        for token, expected_type in zip(tokens, expected_types):
-            self.assertEqual(token.token_type, expected_type)
+        self.assertEqual(len(tokens), len(expected_list))
+        for token, expected in zip(tokens, expected_list):
+            self.assertEqual(token.token_type, expected[0])
+            self.assertEqual(token.lexeme, expected[1])
 
     def test_string_literal(self):
         """Test scanning of string literals"""
