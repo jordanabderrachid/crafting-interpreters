@@ -311,4 +311,14 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    from ast import Binary, Literal
+    from visitors import PrintExprVisitor
+
+    expr = Binary(
+        left=Literal(value=1),
+        operator=Token(token_type=TokenType.PLUS, lexeme="+", literal=None, line=1),
+        right=Literal(value=2),
+    )
+    print_visitor = PrintExprVisitor()
+    print(expr.accept(print_visitor))
+    # main()

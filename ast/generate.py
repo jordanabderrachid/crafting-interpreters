@@ -6,17 +6,17 @@ def autogen_warning():
 
 
 def import_code(names: set[str]) -> str:
-    KNOWN = {"Any": "from typing import Any"}
+    KNOWN = {"Any": "from typing import Any", "Token": "from .. import Token"}
     imports = []
     for name in names:
         if name in KNOWN:
-            imports.append(KNOWN[name])
+            imports.append(f"    {KNOWN[name]}")
         else:
-            imports.append(f"from . import {name}")
+            imports.append(f"    from . import {name}")
     return "\n".join(imports)
 
 
-def generate_init(outdir: str, class_names: list[str]):
+def generate_init(outdir: str, parent: str, class_names: list[str]):
     filename = f"{outdir}/__init__.py"
 
     imports = "\n".join(
@@ -24,17 +24,35 @@ def generate_init(outdir: str, class_names: list[str]):
             f"from .{class_name.lower()} import {class_name}"
             for class_name in class_names
         ]
+        + [f"from .{parent.lower()} import {parent}, {parent}Visitor"]
     )
 
-    def _write_expr_interface(file):
-        file.write("class Expr(ABC):\n")
+    all = ", ".join(
+        [f"'{class_name}'" for class_name in class_names + [parent, f"{parent}Visitor"]]
+    )
+
+    with open(filename, "w") as file:
+        file.write(f"{autogen_warning()}\n\n")
+        file.write(f"{imports}\n\n")
+        file.write(f"__all__ = [{all}]\n")
+
+
+def generate_parent(outdir: str, parent: str, class_names: list[str]):
+    filename = f"{outdir}/{parent.lower()}.py"
+
+    imports = [
+        f"from .{class_name.lower()} import {class_name}" for class_name in class_names
+    ]
+
+    def _write_parent_interface(file):
+        file.write(f"class {parent}(ABC):\n")
         file.write("    @abstractmethod\n")
-        file.write("    def accept(self, visitor: 'ExprVisitor[R]') -> R:\n")
+        file.write(f"    def accept(self, visitor: '{parent}Visitor[R]') -> R:\n")
         file.write("        pass\n")
         file.write("\n")
 
-    def _write_expr_visitor(file, class_names: list[str]):
-        file.write("class ExprVisitor(Generic[R], ABC):\n")
+    def _write_parent_visitor(file, class_names: list[str]):
+        file.write(f"class {parent}Visitor(Generic[R], ABC):\n")
         for class_name in class_names:
             file.write("    @abstractmethod\n")
             file.write(
@@ -43,20 +61,18 @@ def generate_init(outdir: str, class_names: list[str]):
             file.write("        pass\n")
             file.write("\n")
 
-    all = ", ".join(
-        [f"'{class_name}'" for class_name in class_names + ["Expr", "ExprVisitor"]]
-    )
-
     with open(filename, "w") as file:
         file.write(f"{autogen_warning()}\n\n")
         file.write("from abc import ABC, abstractmethod\n")
-        file.write("from typing import TypeVar, Generic\n")
+        file.write("from typing import TypeVar, Generic, TYPE_CHECKING\n")
         file.write("\n")
-        file.write(f"{imports}\n\n")
+        file.write("if TYPE_CHECKING:\n")
+        for imp in imports:
+            file.write(f"    {imp}\n")
+        file.write("\n")
         file.write("R = TypeVar('R')\n\n")
-        _write_expr_interface(file)
-        _write_expr_visitor(file, class_names)
-        file.write(f"__all__ = [{all}]\n")
+        _write_parent_interface(file)
+        _write_parent_visitor(file, class_names)
 
 
 def generate_ast(outdir: str, parent: str, defs: list[str]):
@@ -72,22 +88,30 @@ def generate_ast(outdir: str, parent: str, defs: list[str]):
             attr_type, attr_name = attr_type.strip(), attr_name.strip()
             attrs.append((attr_type, attr_name))
 
-        to_import = {parent, f"{parent}Visitor"} | set(attr[0] for attr in attrs)
+        to_import = set(attr[0] for attr in attrs) - {parent}
         filename = f"{outdir}/{class_name.lower()}.py"
 
         with open(filename, "w") as file:
             file.write(f"{autogen_warning()}\n\n")
-            file.write("from typing import TypeVar\n\n")
-            file.write(f"{import_code(to_import)}\n\n")
+            file.write("from typing import TypeVar, TYPE_CHECKING\n\n")
+            file.write(f"from .{parent.lower()} import {parent}, {parent}Visitor\n\n")
+            if len(to_import) > 0:
+                file.write("if TYPE_CHECKING:\n")
+                file.write(f"{import_code(to_import)}\n\n")
             file.write("R = TypeVar('R')\n\n")
             file.write(f"class {class_name}({parent}):\n")
             for attr_type, attr_name in attrs:
-                file.write(f"    {attr_name}: {attr_type}\n")
+                file.write(f"    {attr_name}: '{attr_type}'\n")
             file.write("\n")
-            file.write("    def accept(self, visitor: ExprVisitor[R]) -> R:\n")
+            file.write(f"    def __init__(self, {', '.join([f"{attr_name}: '{attr_type}'" for attr_type, attr_name in attrs])}):\n")
+            for _, attr_name in attrs:
+                file.write(f"        self.{attr_name} = {attr_name}\n")
+            file.write("\n")
+            file.write("    def accept(self, visitor: 'ExprVisitor[R]') -> R:\n")
             file.write(f"        return visitor.visit_{class_name.lower()}(self)\n")
 
-    generate_init(outdir, class_names)
+    generate_parent(outdir, parent, class_names)
+    generate_init(outdir, parent, class_names)
 
 
 # python ast/generate.py
