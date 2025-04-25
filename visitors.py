@@ -24,3 +24,6 @@ class PrintExprVisitor(ExprVisitor[str]):
 
     def visit_unary(self, expr: "Unary") -> str:
         return self._parenthesize(expr.operator.lexeme, expr.right)
+
+    def print(self, expr: "Expr") -> str:
+        return expr.accept(self)

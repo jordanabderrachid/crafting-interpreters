@@ -1,9 +1,13 @@
 from enum import Enum
 import sys
 
+from ast import Expr, Binary, Unary, Literal, Grouping
+from visitors import PrintExprVisitor
 
 had_error = False
 
+class ParseError(Exception):
+    pass
 
 def error(line: int, message: str):
     global had_error
@@ -268,6 +272,167 @@ class Scanner:
 
         return self.tokens
 
+class Parser:
+    def __init__(self, tokens: list[Token]):
+        self.tokens = tokens
+        self.current = 0
+
+    def is_at_end(self) -> bool:
+        return self._peek().token_type == TokenType.EOF
+
+
+    def _advance(self) -> Token:
+        if not self.is_at_end():
+            self.current += 1
+
+        return self._previous()
+
+    def _previous(self) -> Token:
+        return self.tokens[self.current - 1]
+
+    def _peek(self) -> Token:
+        return self.tokens[self.current]
+
+    def _check(self, token_type: TokenType) -> bool:
+        if self.is_at_end():
+            return False
+
+        return self._peek().token_type == token_type
+
+    def _match(self, *token_types: TokenType) -> bool:
+        for token_type in token_types:
+            if self._check(token_type):
+                self._advance()
+                return True
+
+        return False
+
+    def _consume(self, token_type: TokenType, msg: str) -> Token:
+        if self._check(token_type):
+            return self._advance()
+
+        raise self._error(self._peek(), msg)
+
+    def _error(self, token: Token, msg: str) -> ParseError:
+        if token.token_type == TokenType.EOF:
+            report(token.line, " at end", msg)
+        else:
+            report(token.line, f" at '{token.lexeme}'", msg)
+
+        return ParseError()
+
+    def _synchronize(self):
+        self._advance()
+
+        while not self.is_at_end():
+            if self._previous().token_type == TokenType.SEMICOLON:
+                return
+
+            match self._peek().token_type:
+                case TokenType.CLASS:
+                    return
+                case TokenType.FUN:
+                    return
+                case TokenType.VAR:
+                    return
+                case TokenType.FOR:
+                    return
+                case TokenType.IF:
+                    return
+                case TokenType.WHILE:
+                    return
+                case TokenType.PRINT:
+                    return
+                case TokenType.RETURN:
+                    return
+
+            self._advance()
+
+    # expression → equality ;
+    def _expression(self) -> Expr:
+        return self._equality()
+
+    # equality → comparison ( ( "!=" | "==" ) comparison )* ;
+    def _equality(self) -> Expr:
+        expr = self._comparison()
+
+        while (self._match(TokenType.EQUAL, TokenType.BANG_EQUAL)):
+            operator = self._previous()
+            right = self._comparison()
+            expr = Binary(expr, operator, right)
+
+        return expr
+
+    # comparison → term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
+    def _comparison(self) -> Expr:
+        expr = self._term()
+
+        while self._match(TokenType.GREATER, TokenType.GREATER_EQUAL, TokenType.LESS, TokenType.LESS_EQUAL):
+            operator = self._previous()
+            right = self._term()
+            expr = Binary(expr, operator, right)
+
+        return expr
+
+    # term → factor ( ( "-" | "+" ) factor )* ;
+    def _term(self) -> Expr:
+        expr = self._factor()
+
+        while self._match(TokenType.MINUS, TokenType.PLUS):
+            operator = self._previous()
+            right = self._factor()
+            expr = Binary(expr, operator, right)
+
+        return expr
+
+    # factor → unary ( ( "/" | "*" ) unary )* ;
+    def _factor(self) -> Expr:
+        expr = self._unary()
+
+        while self._match(TokenType.SLASH, TokenType.STAR):
+            operator = self._previous()
+            right = self._unary()
+            expr = Binary(expr, operator, right)
+
+        return expr
+
+    # unary → ( "!" | "-" ) unary
+    #       | primary ;
+    def _unary(self) -> Expr:
+        if self._match(TokenType.BANG, TokenType.MINUS):
+            operator = self._previous()
+            right = self._unary()
+            return Unary(operator, right)
+
+        return self._primary()
+
+    # primary → NUMBER | STRING | "true" | "false" | "nil"
+    #         | "(" expression ")" ;
+    def _primary(self) -> Expr:
+        if self._match(TokenType.TRUE):
+            return Literal(True)
+
+        if self._match(TokenType.FALSE):
+            return Literal(True)
+
+        if self._match(TokenType.NIL):
+            return Literal(None)
+
+        if self._match(TokenType.STRING, TokenType.NUMBER):
+            return Literal(self._previous().literal)
+
+        if self._match(TokenType.LEFT_PAREN):
+            expr = self._expression()
+            self._consume(RIGHT_PAREN, "Expect ')' after expression.")
+            return Grouping(expr)
+
+        raise self._error(self._peek(), "Expect expression.")
+
+    def parse(self) -> Expr | None:
+        try:
+            return self._expression()
+        except ParseError:
+            return None
 
 def run_file(filepath: str):
     global had_error
@@ -280,8 +445,13 @@ def run_file(filepath: str):
 
 def run(script: str):
     scanner = Scanner(script)
-    for token in scanner.scan_tokens():
-        print(token)
+    parser = Parser(scanner.scan_tokens())
+    expression = parser.parse()
+
+    if had_error:
+        return
+
+    print(PrintExprVisitor().print(expression))
 
 
 def run_prompt():
@@ -311,14 +481,4 @@ def main():
 
 
 if __name__ == "__main__":
-    from ast import Binary, Literal
-    from visitors import PrintExprVisitor
-
-    expr = Binary(
-        left=Literal(value=1),
-        operator=Token(token_type=TokenType.PLUS, lexeme="+", literal=None, line=1),
-        right=Literal(value=2),
-    )
-    print_visitor = PrintExprVisitor()
-    print(expr.accept(print_visitor))
-    # main()
+    main()
