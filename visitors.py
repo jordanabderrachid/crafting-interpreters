@@ -1,15 +1,26 @@
-from ast import ExprVisitor, Binary, Literal, Grouping, Unary
-
+from ast import ExprVisitor, Binary, Literal, Grouping, Unary, Expr
 
 class PrintExprVisitor(ExprVisitor[str]):
+    def _parenthesize(self, name: str, *exprs: Expr) -> str:
+        parts = [f"({name}"]
+        for expr in exprs:
+            parts.append(f" {expr.accept(self)}")
+        parts.append(")")
+        return "".join(parts)
+
     def visit_binary(self, expr: "Binary") -> str:
-        return "binary"
+        return self._parenthesize(expr.operator.lexeme, expr.left, expr.right)
 
     def visit_grouping(self, expr: "Grouping") -> str:
-        return "grouping"
+        return self._parenthesize("group", expr.left, expr.right)
 
     def visit_literal(self, expr: "Literal") -> str:
-        return "literal"
+        if expr.value is None:
+            return "nil"
+
+        return str(
+            expr.value
+        )
 
     def visit_unary(self, expr: "Unary") -> str:
-        return "unary"
+        return self._parenthesize(expr.operator.lexeme, expr.right)
