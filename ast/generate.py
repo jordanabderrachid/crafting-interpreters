@@ -26,11 +26,36 @@ def generate_init(outdir: str, class_names: list[str]):
         ]
     )
 
-    all = ", ".join([f"'{class_name}'" for class_name in class_names])
+    def _write_expr_interface(file):
+        file.write("class Expr(ABC):\n")
+        file.write("    @abstractmethod\n")
+        file.write("    def accept(self, visitor: 'ExprVisitor[R]') -> R:\n")
+        file.write("        pass\n")
+        file.write("\n")
+
+    def _write_expr_visitor(file, class_names: list[str]):
+        file.write("class ExprVisitor(Generic[R], ABC):\n")
+        for class_name in class_names:
+            file.write("    @abstractmethod\n")
+            file.write(
+                f"    def visit_{class_name.lower()}(self, expr: '{class_name}') -> R:\n"
+            )
+            file.write("        pass\n")
+            file.write("\n")
+
+    all = ", ".join(
+        [f"'{class_name}'" for class_name in class_names + ["Expr", "ExprVisitor"]]
+    )
 
     with open(filename, "w") as file:
         file.write(f"{autogen_warning()}\n\n")
+        file.write("from abc import ABC, abstractmethod\n")
+        file.write("from typing import TypeVar, Generic\n")
+        file.write("\n")
         file.write(f"{imports}\n\n")
+        file.write("R = TypeVar('R')\n\n")
+        _write_expr_interface(file)
+        _write_expr_visitor(file, class_names)
         file.write(f"__all__ = [{all}]\n")
 
 
@@ -47,19 +72,25 @@ def generate_ast(outdir: str, parent: str, defs: list[str]):
             attr_type, attr_name = attr_type.strip(), attr_name.strip()
             attrs.append((attr_type, attr_name))
 
-        to_import = {parent} | set(attr[0] for attr in attrs)
+        to_import = {parent, f"{parent}Visitor"} | set(attr[0] for attr in attrs)
         filename = f"{outdir}/{class_name.lower()}.py"
 
         with open(filename, "w") as file:
             file.write(f"{autogen_warning()}\n\n")
+            file.write("from typing import TypeVar\n\n")
             file.write(f"{import_code(to_import)}\n\n")
+            file.write("R = TypeVar('R')\n\n")
             file.write(f"class {class_name}({parent}):\n")
             for attr_type, attr_name in attrs:
                 file.write(f"    {attr_name}: {attr_type}\n")
+            file.write("\n")
+            file.write("    def accept(self, visitor: ExprVisitor[R]) -> R:\n")
+            file.write(f"        return visitor.visit_{class_name.lower()}(self)\n")
 
     generate_init(outdir, class_names)
 
 
+# python ast/generate.py
 if __name__ == "__main__":
     curr_dir = os.path.dirname(os.path.abspath(__file__))
     generate_ast(
