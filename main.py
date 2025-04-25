@@ -1,19 +1,29 @@
 from enum import Enum
 import sys
+from typing import Any
 
-from ast import Expr, Binary, Unary, Literal, Grouping
-from visitors import PrintExprVisitor
+from ast import Expr, Binary, Unary, Literal, Grouping, ExprVisitor
 
 had_error = False
+had_runtime_error = False
 
 class ParseError(Exception):
     pass
+
+class RuntimeError(Exception):
+    def __init__(self, token: "Token", msg: str):
+        self.token = token
+        self.msg = msg
 
 def error(line: int, message: str):
     global had_error
     had_error = True
     report(line, "", message)
 
+def runtime_error(rerr: RuntimeError):
+    global had_runtime_error
+    had_runtime_error = True
+    print(f"{rerr.msg}\n[line {rerr.token.line}]")
 
 def report(line: int, where: str, message: str):
     global had_error
@@ -423,7 +433,7 @@ class Parser:
 
         if self._match(TokenType.LEFT_PAREN):
             expr = self._expression()
-            self._consume(RIGHT_PAREN, "Expect ')' after expression.")
+            self._consume(TokenType.RIGHT_PAREN, "Expect ')' after expression.")
             return Grouping(expr)
 
         raise self._error(self._peek(), "Expect expression.")
@@ -434,16 +444,132 @@ class Parser:
         except ParseError:
             return None
 
+class Interpreter(ExprVisitor[Any]):
+    def _stringify(self, value: Any) -> str:
+        if value == None:
+            return "nil"
+
+        if type(value) == bool:
+            return "true" if value else "false"
+
+        if self._is_number(value):
+            repr = str(value)
+            if repr.endswith(".0"):
+                repr = repr[:-2]
+            return repr
+
+        return str(value)
+
+    def _evaluate(self, expr: "Expr") -> Any:
+        return expr.accept(self)
+
+    def _is_truthy(self, value: Any) -> bool:
+        if value == None:
+            return False
+
+        if type(value) == bool:
+            return bool(value)
+
+        return True
+
+    def _is_number(self, value: Any) -> bool:
+        return type(value) == float or type(value) == int
+
+    def _check_number_operand(self, operator: Token, operand: Any):
+        if self._is_number(operand):
+            return
+
+        raise RuntimeError(operator, "Operand must be a number.")
+
+    def _check_number_operands(self, operator: Token, left: Any, right: Any):
+        if self._is_number(left) and self._is_number(right):
+            return
+
+        raise RuntimeError(operator, "Operands must be a number.")
+
+    def visit_binary(self, expr: "Binary") -> Any:
+        left: Any = self._evaluate(expr.left)
+        right: Any = self._evaluate(expr.right)
+
+        match expr.operator.token_type:
+            case TokenType.MINUS:
+                self._check_number_operands(expr.operator, left, right)
+                return float(left) - float(right)
+            case TokenType.SLASH:
+                self._check_number_operands(expr.operator, left, right)
+                return float(left) / float(right)
+            case TokenType.STAR:
+                self._check_number_operands(expr.operator, left, right)
+                return float(left) * float(right)
+            case TokenType.PLUS:
+                if type(left) == str and type(right) == str:
+                    return f"{left}{right}"
+
+                if self._is_number(left) and self._is_number(right):
+                    return float(left) + float(right)
+
+                raise RuntimeError(expr.operator, "Operands must be two numbers or two strings.");
+            case TokenType.GREATER:
+                self._check_number_operands(expr.operator, left, right)
+                return float(left) > float(right)
+            case TokenType.GREATER_EQUAL:
+                self._check_number_operands(expr.operator, left, right)
+                return float(left) >= float(right)
+            case TokenType.LESS:
+                self._check_number_operands(expr.operator, left, right)
+                return float(left) < float(right)
+            case TokenType.LESS_EQUAL:
+                self._check_number_operands(expr.operator, left, right)
+                return float(left) <= float(right)
+            case TokenType.BANG_EQUAL:
+                return not left == right
+            case TokenType.EQUAL_EQUAL:
+                return left == right
+
+        return None
+
+    def visit_grouping(self, expr: "Grouping") -> Any:
+        return self._evaluate(expr.expression)
+
+    def visit_literal(self, expr: "Literal") -> Any:
+        return expr.value
+
+    def visit_unary(self, expr: "Unary") -> Any:
+        right: Any = self._evaluate(expr.right)
+
+        match expr.operator.token_type:
+            case TokenType.MINUS:
+                self._check_number_operand(expr.operator, right)
+                return -float(right)
+            case TokenType.BANG:
+                return not self._is_truthy(right)
+
+        # unreachable
+        return None
+
+    def interpret(self, expr: "Expr"):
+        try:
+            value = self._evaluate(expr)
+            print(self._stringify(value))
+        except RuntimeError as rerr:
+            runtime_error(rerr)
+
+
 def run_file(filepath: str):
     global had_error
+    global had_runtime_error
     with open(filepath, "rb") as file:
         data = file.read()
         run(data.decode("utf-8"))
         if had_error:
             sys.exit(65)
+        if had_runtime_error:
+            sys.exit(70)
 
+interpreter = Interpreter()
 
 def run(script: str):
+    global interpreter
     scanner = Scanner(script)
     parser = Parser(scanner.scan_tokens())
     expression = parser.parse()
@@ -451,11 +577,12 @@ def run(script: str):
     if had_error:
         return
 
-    print(PrintExprVisitor().print(expression))
+    interpreter.interpret(expression)
 
 
 def run_prompt():
     global had_error
+    global had_runtime_error
     while True:
         print("> ", end="")
         try:
@@ -467,6 +594,7 @@ def run_prompt():
             break
         run(input_str)
         had_error = False
+        had_runtime_error = False
 
 
 def main():
