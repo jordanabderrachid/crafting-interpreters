@@ -40,6 +40,10 @@ class ExprVisitor(Generic[R], ABC):
     def visit_variable(self, expr: "Variable") -> R:
         pass
 
+    @abstractmethod
+    def visit_assign(self, expr: "Assign") -> R:
+        pass
+
 
 class Variable(Expr):
     def __init__(self, name: "Token"):
@@ -47,3 +51,12 @@ class Variable(Expr):
 
     def accept(self, visitor: "ExprVisitor[R]") -> R:
         return visitor.visit_variable(self)
+
+
+class Assign(Expr):
+    def __init__(self, name: "Token", value: "Expr"):
+        self.name = name
+        self.value = value
+
+    def accept(self, visitor: "ExprVisitor[R]") -> R:
+        return visitor.visit_assign(self)

@@ -13,9 +13,10 @@ from lox_ast import (
     PrintStmt,
     Stmt,
     ExprStmt,
+    Variable,
+    Assign,
+    VarStmt,
 )
-from lox_ast.expr import Variable
-from lox_ast.stmt import VarStmt
 
 had_error = False
 had_runtime_error = False
@@ -414,15 +415,31 @@ class Parser:
         self._consume(TokenType.SEMICOLON, "Expect ';' after value.")
         return PrintStmt(value)
 
-    # expression → equality ;
+    # expression → assignment ;
     def _expression(self) -> Expr:
-        return self._equality()
+        return self._assignment()
+
+    # assignment → IDENTIFIER "=" assignment
+    #            | equality ;
+    def _assignment(self) -> Expr:
+        expr = self._equality()
+
+        if self._match(TokenType.EQUAL):
+            equals = self._previous()
+            value = self._assignment()
+            if isinstance(expr, Variable):
+                name = expr.name
+                return Assign(name, value)
+
+            self._error(equals, "Invalid assignment target.")
+
+        return expr
 
     # equality → comparison ( ( "!=" | "==" ) comparison )* ;
     def _equality(self) -> Expr:
         expr = self._comparison()
 
-        while self._match(TokenType.EQUAL, TokenType.BANG_EQUAL):
+        while self._match(TokenType.EQUAL_EQUAL, TokenType.BANG_EQUAL):
             operator = self._previous()
             right = self._comparison()
             expr = Binary(expr, operator, right)
@@ -625,6 +642,11 @@ class Interpreter(ExprVisitor[Any], StmtVisitor[None]):
     def visit_variable(self, expr: "Variable") -> Any:
         return self.environment.get(expr.name)
 
+    def visit_assign(self, expr: "Assign") -> Any:
+        value = self._evaluate(expr.value)
+        self.environment.assign(expr.name, value)
+        return value
+
     def visit_expression_stmt(self, stmt: "ExprStmt") -> None:
         self._evaluate(stmt.expr)
 
@@ -654,11 +676,17 @@ class Environment:
     def define(self, name: str, value: Any):
         self.values[name] = value
 
-    def get(self, name: Token) -> Any:
+    def _ensure(self, name: Token):
         if name.lexeme not in self.values:
             raise RuntimeError(name, f"Undefined variable '{name.lexeme}'.")
 
+    def get(self, name: Token) -> Any:
+        self._ensure(name)
         return self.values[name.lexeme]
+
+    def assign(self, name: Token, value: Any):
+        self._ensure(name)
+        self.define(name.lexeme, value)
 
 
 def run_file(filepath: str):

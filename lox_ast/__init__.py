@@ -4,11 +4,12 @@ from .binary import Binary
 from .grouping import Grouping
 from .literal import Literal
 from .unary import Unary
-from .expr import Expr, ExprVisitor
-from .stmt import Stmt, StmtVisitor, ExprStmt
+from .expr import Expr, ExprVisitor, Assign, Variable
+from .stmt import Stmt, StmtVisitor, ExprStmt, VarStmt
 from .print import PrintStmt
 
 __all__ = [
+    "Assign",
     "Binary",
     "Expr",
     "ExprStmt",
@@ -19,4 +20,6 @@ __all__ = [
     "Stmt",
     "StmtVisitor",
     "Unary",
+    "Variable",
+    "VarStmt",
 ]
