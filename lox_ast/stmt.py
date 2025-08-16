@@ -4,6 +4,7 @@ from typing import TypeVar, Generic, TYPE_CHECKING
 if TYPE_CHECKING:
     from .expr import Expr
     from .print import PrintStmt
+    from .. import Token
 
 R = TypeVar("R")
 
@@ -23,6 +24,10 @@ class StmtVisitor(Generic[R], ABC):
     def visit_print_stmt(self, stmt: "PrintStmt") -> R:
         pass
 
+    @abstractmethod
+    def visit_var_stmt(self, stmt: "VarStmt") -> R:
+        pass
+
 
 class ExprStmt(Stmt):
     def __init__(self, expr: "Expr"):
@@ -30,3 +35,12 @@ class ExprStmt(Stmt):
 
     def accept(self, visitor: "StmtVisitor[R]") -> R:
         return visitor.visit_expression_stmt(self)
+
+
+class VarStmt(Stmt):
+    def __init__(self, name: "Token", initializer: "Expr | None"):
+        self.name = name
+        self.initializer = initializer
+
+    def accept(self, visitor: "StmtVisitor[R]") -> R:
+        return visitor.visit_var_stmt(self)

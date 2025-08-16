@@ -7,13 +7,14 @@ from .expr import Expr, ExprVisitor
 if TYPE_CHECKING:
     from typing import Any
 
-R = TypeVar('R')
+R = TypeVar("R")
+
 
 class Literal(Expr):
-    value: 'Any'
+    value: "Any"
 
-    def __init__(self, value: 'Any'):
+    def __init__(self, value: "Any"):
         self.value = value
 
-    def accept(self, visitor: 'ExprVisitor[R]') -> R:
+    def accept(self, visitor: "ExprVisitor[R]") -> R:
         return visitor.visit_literal(self)

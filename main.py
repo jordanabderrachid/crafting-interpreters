@@ -14,6 +14,8 @@ from lox_ast import (
     Stmt,
     ExprStmt,
 )
+from lox_ast.expr import Variable
+from lox_ast.stmt import VarStmt
 
 had_error = False
 had_runtime_error = False
@@ -376,6 +378,26 @@ class Parser:
 
             self._advance()
 
+    def _declaration(self) -> Stmt | None:
+        try:
+            if self._match(TokenType.VAR):
+                return self._var_declaration()
+
+            return self._statement()
+        except ParseError:
+            self._synchronize()
+            return None
+
+    def _var_declaration(self) -> Stmt:
+        name = self._consume(TokenType.IDENTIFIER, "Expected variable name.")
+        initializer = None
+        if self._match(TokenType.EQUAL):
+            initializer = self._expression()
+
+        self._consume(TokenType.SEMICOLON, "Expect ';' after variable declaration.")
+
+        return VarStmt(name, initializer)
+
     def _statement(self) -> Stmt:
         if self._match(TokenType.PRINT):
             return self._print_statement()
@@ -455,7 +477,7 @@ class Parser:
 
         return self._primary()
 
-    # primary → NUMBER | STRING | "true" | "false" | "nil"
+    # primary → NUMBER | STRING | "true" | "false" | "nil" | IDENTIFIER
     #         | "(" expression ")" ;
     def _primary(self) -> Expr:
         if self._match(TokenType.TRUE):
@@ -470,6 +492,9 @@ class Parser:
         if self._match(TokenType.STRING, TokenType.NUMBER):
             return Literal(self._previous().literal)
 
+        if self._match(TokenType.IDENTIFIER):
+            return Variable(self._previous())
+
         if self._match(TokenType.LEFT_PAREN):
             expr = self._expression()
             self._consume(TokenType.RIGHT_PAREN, "Expect ')' after expression.")
@@ -478,17 +503,18 @@ class Parser:
         raise self._error(self._peek(), "Expect expression.")
 
     def parse(self) -> list[Stmt]:
-        statements = []
+        statements: list[Stmt] = []
         while not self.is_at_end():
-            statements.append(self._statement())
+            stmt = self._declaration()
+            if stmt is not None:
+                statements.append(stmt)
         return statements
-        # try:
-        #     return self._expression()
-        # except ParseError:
-        #     return None
 
 
 class Interpreter(ExprVisitor[Any], StmtVisitor[None]):
+    def __init__(self) -> None:
+        self.environment = Environment()
+
     def _stringify(self, value: Any) -> str:
         if value is None:
             return "nil"
@@ -596,6 +622,9 @@ class Interpreter(ExprVisitor[Any], StmtVisitor[None]):
         # unreachable
         return None
 
+    def visit_variable(self, expr: "Variable") -> Any:
+        return self.environment.get(expr.name)
+
     def visit_expression_stmt(self, stmt: "ExprStmt") -> None:
         self._evaluate(stmt.expr)
 
@@ -603,12 +632,33 @@ class Interpreter(ExprVisitor[Any], StmtVisitor[None]):
         value = self._evaluate(stmt.expr)
         print(self._stringify(value))
 
+    def visit_var_stmt(self, stmt: "VarStmt") -> None:
+        value = None
+        if stmt.initializer is not None:
+            value = self._evaluate(stmt.initializer)
+
+        self.environment.define(stmt.name.lexeme, value)
+
     def interpret(self, stmts: "list[Stmt]"):
         try:
             for stmt in stmts:
                 self._execute(stmt)
         except RuntimeError as rerr:
             runtime_error(rerr)
+
+
+class Environment:
+    def __init__(self) -> None:
+        self.values: dict[str, Any] = {}
+
+    def define(self, name: str, value: Any):
+        self.values[name] = value
+
+    def get(self, name: Token) -> Any:
+        if name.lexeme not in self.values:
+            raise RuntimeError(name, f"Undefined variable '{name.lexeme}'.")
+
+        return self.values[name.lexeme]
 
 
 def run_file(filepath: str):

@@ -8,28 +8,42 @@ if TYPE_CHECKING:
     from .grouping import Grouping
     from .literal import Literal
     from .unary import Unary
+    from .. import Token
 
-R = TypeVar('R')
+R = TypeVar("R")
+
 
 class Expr(ABC):
     @abstractmethod
-    def accept(self, visitor: 'ExprVisitor[R]') -> R:
+    def accept(self, visitor: "ExprVisitor[R]") -> R:
         pass
+
 
 class ExprVisitor(Generic[R], ABC):
     @abstractmethod
-    def visit_binary(self, expr: 'Binary') -> R:
+    def visit_binary(self, expr: "Binary") -> R:
         pass
 
     @abstractmethod
-    def visit_grouping(self, expr: 'Grouping') -> R:
+    def visit_grouping(self, expr: "Grouping") -> R:
         pass
 
     @abstractmethod
-    def visit_literal(self, expr: 'Literal') -> R:
+    def visit_literal(self, expr: "Literal") -> R:
         pass
 
     @abstractmethod
-    def visit_unary(self, expr: 'Unary') -> R:
+    def visit_unary(self, expr: "Unary") -> R:
         pass
 
+    @abstractmethod
+    def visit_variable(self, expr: "Variable") -> R:
+        pass
+
+
+class Variable(Expr):
+    def __init__(self, name: "Token"):
+        self.name = name
+
+    def accept(self, visitor: "ExprVisitor[R]") -> R:
+        return visitor.visit_variable(self)

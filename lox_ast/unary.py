@@ -7,15 +7,16 @@ from .expr import Expr, ExprVisitor
 if TYPE_CHECKING:
     from .. import Token
 
-R = TypeVar('R')
+R = TypeVar("R")
+
 
 class Unary(Expr):
-    operator: 'Token'
-    right: 'Expr'
+    operator: "Token"
+    right: "Expr"
 
-    def __init__(self, operator: 'Token', right: 'Expr'):
+    def __init__(self, operator: "Token", right: "Expr"):
         self.operator = operator
         self.right = right
 
-    def accept(self, visitor: 'ExprVisitor[R]') -> R:
+    def accept(self, visitor: "ExprVisitor[R]") -> R:
         return visitor.visit_unary(self)
