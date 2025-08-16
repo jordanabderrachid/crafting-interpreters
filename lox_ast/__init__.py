@@ -5,12 +5,13 @@ from .grouping import Grouping
 from .literal import Literal
 from .unary import Unary
 from .expr import Expr, ExprVisitor, Assign, Variable
-from .stmt import Stmt, StmtVisitor, ExprStmt, VarStmt
+from .stmt import Stmt, StmtVisitor, ExprStmt, VarStmt, Block
 from .print import PrintStmt
 
 __all__ = [
     "Assign",
     "Binary",
+    "Block",
     "Expr",
     "ExprStmt",
     "ExprVisitor",

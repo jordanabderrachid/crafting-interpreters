@@ -1,8 +1,9 @@
 from enum import Enum
 import sys
-from typing import Any
+from typing import Any, Self
 
 from lox_ast import (
+    Block,
     Expr,
     Binary,
     Unary,
@@ -399,9 +400,15 @@ class Parser:
 
         return VarStmt(name, initializer)
 
+    # statement → exprStmt
+    #           | printStmt
+    #           | block ;
     def _statement(self) -> Stmt:
         if self._match(TokenType.PRINT):
             return self._print_statement()
+
+        if self._match(TokenType.LEFT_BRACE):
+            return self._block()
 
         return self._expression_statement()
 
@@ -414,6 +421,18 @@ class Parser:
         value = self._expression()
         self._consume(TokenType.SEMICOLON, "Expect ';' after value.")
         return PrintStmt(value)
+
+    # block → "{" declaration* "}" ;
+    def _block(self) -> Stmt:
+        statements = []
+
+        while not self._check(TokenType.RIGHT_BRACE) and not self.is_at_end():
+            stmt = self._declaration()
+            if stmt:
+                statements.append(stmt)
+
+        self._consume(TokenType.RIGHT_BRACE, "Expect '}' after block.")
+        return Block(statements)
 
     # expression → assignment ;
     def _expression(self) -> Expr:
@@ -553,6 +572,15 @@ class Interpreter(ExprVisitor[Any], StmtVisitor[None]):
     def _execute(self, stmt: "Stmt") -> None:
         stmt.accept(self)
 
+    def _execute_block(self, block: "Block", environment: "Environment") -> None:
+        previous = self.environment
+        try:
+            self.environment = environment
+            for stmt in block.statements:
+                self._execute(stmt)
+        finally:
+            self.environment = previous
+
     def _is_truthy(self, value: Any) -> bool:
         if value is None:
             return False
@@ -661,6 +689,9 @@ class Interpreter(ExprVisitor[Any], StmtVisitor[None]):
 
         self.environment.define(stmt.name.lexeme, value)
 
+    def visit_block(self, stmt: "Block") -> None:
+        self._execute_block(stmt, Environment(self.environment))
+
     def interpret(self, stmts: "list[Stmt]"):
         try:
             for stmt in stmts:
@@ -670,23 +701,30 @@ class Interpreter(ExprVisitor[Any], StmtVisitor[None]):
 
 
 class Environment:
-    def __init__(self) -> None:
+    def __init__(self, enclosing: Self | None = None) -> None:
+        self.enclosing = enclosing
         self.values: dict[str, Any] = {}
 
     def define(self, name: str, value: Any):
         self.values[name] = value
 
-    def _ensure(self, name: Token):
-        if name.lexeme not in self.values:
-            raise RuntimeError(name, f"Undefined variable '{name.lexeme}'.")
-
     def get(self, name: Token) -> Any:
-        self._ensure(name)
-        return self.values[name.lexeme]
+        if name.lexeme in self.values:
+            return self.values[name.lexeme]
+
+        if self.enclosing is not None:
+            return self.enclosing.get(name)
+
+        raise RuntimeError(name, f"Undefined variable '{name.lexeme}'.")
 
     def assign(self, name: Token, value: Any):
-        self._ensure(name)
-        self.define(name.lexeme, value)
+        if name.lexeme in self.values:
+            self.values[name.lexeme] = value
+
+        if self.enclosing is not None:
+            return self.enclosing.assign(name, value)
+
+        raise RuntimeError(name, f"Undefined variable '{name.lexeme}'.")
 
 
 def run_file(filepath: str):

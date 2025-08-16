@@ -28,6 +28,10 @@ class StmtVisitor(Generic[R], ABC):
     def visit_var_stmt(self, stmt: "VarStmt") -> R:
         pass
 
+    @abstractmethod
+    def visit_block(self, stmt: "Block") -> R:
+        pass
+
 
 class ExprStmt(Stmt):
     def __init__(self, expr: "Expr"):
@@ -44,3 +48,11 @@ class VarStmt(Stmt):
 
     def accept(self, visitor: "StmtVisitor[R]") -> R:
         return visitor.visit_var_stmt(self)
+
+
+class Block(Stmt):
+    def __init__(self, statements: list[Stmt]):
+        self.statements = statements
+
+    def accept(self, visitor: "StmtVisitor[R]") -> R:
+        return visitor.visit_block(self)
