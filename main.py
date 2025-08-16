@@ -460,7 +460,7 @@ class Interpreter(ExprVisitor[Any]):
         if value is None:
             return "nil"
 
-        if value is bool:
+        if type(value) is bool:
             return "true" if value else "false"
 
         if self._is_number(value):
@@ -478,13 +478,13 @@ class Interpreter(ExprVisitor[Any]):
         if value is None:
             return False
 
-        if value is bool:
+        if type(value) is bool:
             return bool(value)
 
         return True
 
     def _is_number(self, value: Any) -> bool:
-        return value is float or value is int
+        return type(value) is float or type(value) is int
 
     def _check_number_operand(self, operator: Token, operand: Any):
         if self._is_number(operand):
@@ -513,7 +513,7 @@ class Interpreter(ExprVisitor[Any]):
                 self._check_number_operands(expr.operator, left, right)
                 return float(left) * float(right)
             case TokenType.PLUS:
-                if type(left) == str and type(right) == str:
+                if type(left) is str and type(right) is str:
                     return f"{left}{right}"
 
                 if self._is_number(left) and self._is_number(right):
