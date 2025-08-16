@@ -2,7 +2,18 @@ from enum import Enum
 import sys
 from typing import Any
 
-from lox_ast import Expr, Binary, Unary, Literal, Grouping, ExprVisitor
+from lox_ast import (
+    Expr,
+    Binary,
+    Unary,
+    Literal,
+    Grouping,
+    ExprVisitor,
+    StmtVisitor,
+    PrintStmt,
+    Stmt,
+    ExprStmt,
+)
 
 had_error = False
 had_runtime_error = False
@@ -199,9 +210,11 @@ class Scanner:
 
         self._add_token(
             TokenType.NUMBER,
-            float(self.source[self.start : self.current])
-            if is_float
-            else int(self.source[self.start : self.current]),
+            (
+                float(self.source[self.start : self.current])
+                if is_float
+                else int(self.source[self.start : self.current])
+            ),
         )
 
     def _identifier(self):
@@ -363,6 +376,22 @@ class Parser:
 
             self._advance()
 
+    def _statement(self) -> Stmt:
+        if self._match(TokenType.PRINT):
+            return self._print_statement()
+
+        return self._expression_statement()
+
+    def _expression_statement(self) -> Stmt:
+        value = self._expression()
+        self._consume(TokenType.SEMICOLON, "Expect ';' after value.")
+        return ExprStmt(value)
+
+    def _print_statement(self) -> Stmt:
+        value = self._expression()
+        self._consume(TokenType.SEMICOLON, "Expect ';' after value.")
+        return PrintStmt(value)
+
     # expression → equality ;
     def _expression(self) -> Expr:
         return self._equality()
@@ -448,14 +477,18 @@ class Parser:
 
         raise self._error(self._peek(), "Expect expression.")
 
-    def parse(self) -> Expr | None:
-        try:
-            return self._expression()
-        except ParseError:
-            return None
+    def parse(self) -> list[Stmt]:
+        statements = []
+        while not self.is_at_end():
+            statements.append(self._statement())
+        return statements
+        # try:
+        #     return self._expression()
+        # except ParseError:
+        #     return None
 
 
-class Interpreter(ExprVisitor[Any]):
+class Interpreter(ExprVisitor[Any], StmtVisitor[None]):
     def _stringify(self, value: Any) -> str:
         if value is None:
             return "nil"
@@ -473,6 +506,9 @@ class Interpreter(ExprVisitor[Any]):
 
     def _evaluate(self, expr: "Expr") -> Any:
         return expr.accept(self)
+
+    def _execute(self, stmt: "Stmt") -> None:
+        stmt.accept(self)
 
     def _is_truthy(self, value: Any) -> bool:
         if value is None:
@@ -560,10 +596,17 @@ class Interpreter(ExprVisitor[Any]):
         # unreachable
         return None
 
-    def interpret(self, expr: "Expr"):
+    def visit_expression_stmt(self, stmt: "ExprStmt") -> None:
+        self._evaluate(stmt.expr)
+
+    def visit_print_stmt(self, stmt: "PrintStmt") -> None:
+        value = self._evaluate(stmt.expr)
+        print(self._stringify(value))
+
+    def interpret(self, stmts: "list[Stmt]"):
         try:
-            value = self._evaluate(expr)
-            print(self._stringify(value))
+            for stmt in stmts:
+                self._execute(stmt)
         except RuntimeError as rerr:
             runtime_error(rerr)
 
@@ -587,12 +630,12 @@ def run(script: str):
     global interpreter
     scanner = Scanner(script)
     parser = Parser(scanner.scan_tokens())
-    expression = parser.parse()
+    statements = parser.parse()
 
     if had_error:
         return
 
-    interpreter.interpret(expression)
+    interpreter.interpret(statements)
 
 
 def run_prompt():

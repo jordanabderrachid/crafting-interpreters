@@ -5,5 +5,18 @@ from .grouping import Grouping
 from .literal import Literal
 from .unary import Unary
 from .expr import Expr, ExprVisitor
+from .stmt import Stmt, StmtVisitor, ExprStmt
+from .print import PrintStmt
 
-__all__ = ['Binary', 'Grouping', 'Literal', 'Unary', 'Expr', 'ExprVisitor']
+__all__ = [
+    "Binary",
+    "Expr",
+    "ExprStmt",
+    "ExprVisitor",
+    "Grouping",
+    "Literal",
+    "PrintStmt",
+    "Stmt",
+    "StmtVisitor",
+    "Unary",
+]
