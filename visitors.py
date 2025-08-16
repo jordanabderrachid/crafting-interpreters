@@ -1,4 +1,5 @@
-from ast import ExprVisitor, Binary, Literal, Grouping, Unary, Expr
+from lox_ast import ExprVisitor, Binary, Literal, Grouping, Unary, Expr
+
 
 class PrintExprVisitor(ExprVisitor[str]):
     def _parenthesize(self, name: str, *exprs: Expr) -> str:
@@ -18,9 +19,7 @@ class PrintExprVisitor(ExprVisitor[str]):
         if expr.value is None:
             return "nil"
 
-        return str(
-            expr.value
-        )
+        return str(expr.value)
 
     def visit_unary(self, expr: "Unary") -> str:
         return self._parenthesize(expr.operator.lexeme, expr.right)

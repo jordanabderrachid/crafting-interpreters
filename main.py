@@ -2,28 +2,33 @@ from enum import Enum
 import sys
 from typing import Any
 
-from ast import Expr, Binary, Unary, Literal, Grouping, ExprVisitor
+from lox_ast import Expr, Binary, Unary, Literal, Grouping, ExprVisitor
 
 had_error = False
 had_runtime_error = False
 
+
 class ParseError(Exception):
     pass
+
 
 class RuntimeError(Exception):
     def __init__(self, token: "Token", msg: str):
         self.token = token
         self.msg = msg
 
+
 def error(line: int, message: str):
     global had_error
     had_error = True
     report(line, "", message)
 
+
 def runtime_error(rerr: RuntimeError):
     global had_runtime_error
     had_runtime_error = True
     print(f"{rerr.msg}\n[line {rerr.token.line}]")
+
 
 def report(line: int, where: str, message: str):
     global had_error
@@ -282,6 +287,7 @@ class Scanner:
 
         return self.tokens
 
+
 class Parser:
     def __init__(self, tokens: list[Token]):
         self.tokens = tokens
@@ -289,7 +295,6 @@ class Parser:
 
     def is_at_end(self) -> bool:
         return self._peek().token_type == TokenType.EOF
-
 
     def _advance(self) -> Token:
         if not self.is_at_end():
@@ -366,7 +371,7 @@ class Parser:
     def _equality(self) -> Expr:
         expr = self._comparison()
 
-        while (self._match(TokenType.EQUAL, TokenType.BANG_EQUAL)):
+        while self._match(TokenType.EQUAL, TokenType.BANG_EQUAL):
             operator = self._previous()
             right = self._comparison()
             expr = Binary(expr, operator, right)
@@ -377,7 +382,12 @@ class Parser:
     def _comparison(self) -> Expr:
         expr = self._term()
 
-        while self._match(TokenType.GREATER, TokenType.GREATER_EQUAL, TokenType.LESS, TokenType.LESS_EQUAL):
+        while self._match(
+            TokenType.GREATER,
+            TokenType.GREATER_EQUAL,
+            TokenType.LESS,
+            TokenType.LESS_EQUAL,
+        ):
             operator = self._previous()
             right = self._term()
             expr = Binary(expr, operator, right)
@@ -444,12 +454,13 @@ class Parser:
         except ParseError:
             return None
 
+
 class Interpreter(ExprVisitor[Any]):
     def _stringify(self, value: Any) -> str:
-        if value == None:
+        if value is None:
             return "nil"
 
-        if type(value) == bool:
+        if value is bool:
             return "true" if value else "false"
 
         if self._is_number(value):
@@ -464,16 +475,16 @@ class Interpreter(ExprVisitor[Any]):
         return expr.accept(self)
 
     def _is_truthy(self, value: Any) -> bool:
-        if value == None:
+        if value is None:
             return False
 
-        if type(value) == bool:
+        if value is bool:
             return bool(value)
 
         return True
 
     def _is_number(self, value: Any) -> bool:
-        return type(value) == float or type(value) == int
+        return value is float or value is int
 
     def _check_number_operand(self, operator: Token, operand: Any):
         if self._is_number(operand):
@@ -508,7 +519,9 @@ class Interpreter(ExprVisitor[Any]):
                 if self._is_number(left) and self._is_number(right):
                     return float(left) + float(right)
 
-                raise RuntimeError(expr.operator, "Operands must be two numbers or two strings.");
+                raise RuntimeError(
+                    expr.operator, "Operands must be two numbers or two strings."
+                )
             case TokenType.GREATER:
                 self._check_number_operands(expr.operator, left, right)
                 return float(left) > float(right)
@@ -566,7 +579,9 @@ def run_file(filepath: str):
         if had_runtime_error:
             sys.exit(70)
 
+
 interpreter = Interpreter()
+
 
 def run(script: str):
     global interpreter
