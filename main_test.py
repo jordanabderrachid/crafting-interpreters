@@ -1,5 +1,6 @@
 import unittest
-from main import Scanner, TokenType
+
+from main import Interpreter, Parser, Scanner, TokenType
 
 
 class TestScanner(unittest.TestCase):
@@ -151,6 +152,26 @@ class TestScanner(unittest.TestCase):
         for i in range(3):
             self.assertEqual(tokens[i].token_type, TokenType.IDENTIFIER)
             self.assertEqual(tokens[i].lexeme, expected[i])
+
+
+def evaluate(source: str):
+    scanner = Scanner(source)
+    tokens = scanner.scan_tokens()
+    parser = Parser(tokens)
+    stmts = parser.parse()
+    interpreter = Interpreter()
+    interpreter.interpret(stmts)
+    return interpreter
+
+
+class TestInterpreter(unittest.TestCase):
+    def test_false_literal(self):
+        interpreter = evaluate("var x = false;")
+        self.assertIs(interpreter.environment.values["x"], False)
+
+    def test_true_literal(self):
+        interpreter = evaluate("var x = true;")
+        self.assertIs(interpreter.environment.values["x"], True)
 
 
 if __name__ == "__main__":

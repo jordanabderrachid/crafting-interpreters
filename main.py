@@ -520,7 +520,7 @@ class Parser:
             return Literal(True)
 
         if self._match(TokenType.FALSE):
-            return Literal(True)
+            return Literal(False)
 
         if self._match(TokenType.NIL):
             return Literal(None)
